@@ -1,0 +1,12 @@
+
+groups:
+- name: payment-webhook-slo
+
+  rules:
+
+  - record: slo:availability_ratio
+
+    expr: |
+      sum(rate(http_requests_total{status="2xx"}[5m]))
+      /
+      sum(rate(http_requests_total[5m]))

@@ -1,0 +1,9 @@
+service: payment-webhook
+
+sli:
+  good_metric: webhook_success_under_1s
+  total_metric: webhook_requests_total
+
+slo:
+  target: 99.9
+  window: 30d

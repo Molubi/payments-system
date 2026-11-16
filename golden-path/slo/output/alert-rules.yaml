@@ -1,0 +1,37 @@
+
+groups:
+- name: payment-webhook-alerts
+
+  rules:
+
+  - alert: HighErrorBudgetBurn
+
+    expr: slo:availability_ratio < 0.999
+
+    for: 5m
+
+    labels:
+      severity: critical
+
+    annotations:
+
+      summary: "payment-webhook error budget burn"
+
+      description: |
+        Service is burning error budget too fast.
+
+  - alert: SlowErrorBudgetBurn
+
+    expr: slo:availability_ratio < 0.9995
+
+    for: 1h
+
+    labels:
+      severity: warning
+
+    annotations:
+
+      summary: "payment-webhook slow burn"
+
+      description: |
+        Service is consuming error budget.

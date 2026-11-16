@@ -1,0 +1,70 @@
+name: Golden Path CI & Policy Gate
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  service-test:
+    name: Service Tests & SLO Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pyyaml
+
+      - name: Run unit & integration tests
+        run: pytest -v
+
+      - name: Verify SLO-as-Code rules are up to date
+        run: |
+          python golden-path/slo/generator.py
+          git diff --exit-code golden-path/slo/output/
+
+  terraform-and-policy-gate:
+    name: Terraform Validate & FinOps Tag Policy Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform Format Check
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      - name: Terraform Init & Validate (Example)
+        run: |
+          terraform -chdir=terraform/examples/payment-service init -backend=false
+          terraform -chdir=terraform/examples/payment-service validate
+
+      - name: FinOps Policy Gate (Enforce Mandatory Cost Tags)
+        run: |
+          python - << 'EOF'
+          import pathlib, sys
+
+          tf_file = pathlib.Path("terraform/examples/payment-service/main.tf").read_text()
+          required_tags = ["owner", "service", "environment", "cost_centre"]
+          missing = [tag for tag in required_tags if tag not in tf_file]
+
+          if missing:
+              print(f"POLICY GATE FAILED: Missing mandatory FinOps tags: {missing}")
+              sys.exit(1)
+
+          print("POLICY GATE PASSED: All mandatory FinOps cost tags are present.")
+          EOF
